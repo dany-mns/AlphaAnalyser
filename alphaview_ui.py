@@ -9,14 +9,10 @@ from matplotlib.ticker import MaxNLocator
 import analyser_ui
 from src import database, RabbitMq
 
-USERNAME = "admin"
-PASS = "password"
-DBNAME = "aVoice"
-
 class RabbitMqThread(QtCore.QThread):
-    def __init__(self, user_data, parent=None):
+    def __init__(self, user_data, listWidget, funCallUpdate, parent=None):
         super(RabbitMqThread, self).__init__(parent)
-        self.rabbitmq = RabbitMq.RabbitMq(user_data)
+        self.rabbitmq = RabbitMq.RabbitMq(user_data, listWidget, funCallUpdate)
 
     def run(self):
         while True:
@@ -30,7 +26,7 @@ class AlphaViewAppUI(QtWidgets.QMainWindow, analyser_ui.Ui_QMainWindow):
         self.setupUi(self)
 
         self.user_data = {}
-        self.rmq = RabbitMqThread(self.user_data)
+        self.rmq = RabbitMqThread(self.user_data, self.listWidget, self.update_user_state)
         self.start_mqthread()
 
         # init image classifier graph
@@ -45,7 +41,7 @@ class AlphaViewAppUI(QtWidgets.QMainWindow, analyser_ui.Ui_QMainWindow):
         self.axis_mood = self.figure_mood.add_subplot(111)
         self.axis_mood.xaxis.set_major_locator(MaxNLocator(integer=True))
         self.axis_mood.set(title="Sentiments analyser from text", xlabel="# Messages", ylabel="Mood")
-        self.classes = ['automobile', 'airplane', 'truck', 'ship']
+        self.classes = ['airplane', 'automobile', 'ship', 'truck']
 
         self.plot_classifier_images_graph([0])
         self.plot_text_mood_graph([0])
@@ -53,8 +49,7 @@ class AlphaViewAppUI(QtWidgets.QMainWindow, analyser_ui.Ui_QMainWindow):
         self.verticalLayoutText.addWidget(self.canvas_mood)
         self.verticalLayoutImages.addWidget(self.canvas_imgcls)
 
-
-        self.listWidget.currentItemChanged.connect(self.ViewUserState)
+        self.listWidget.currentItemChanged.connect(self.update_user_state)
 
     def start_mqthread(self):
         if not self.rmq.isRunning():
@@ -65,21 +60,19 @@ class AlphaViewAppUI(QtWidgets.QMainWindow, analyser_ui.Ui_QMainWindow):
         for user in users:
             self.listWidget.addItem(user)
 
-    def ViewUserState(self):
+    def update_user_state(self):
         # self.plot_text_mood_graph()
-        username = self.listWidget.currentItem().text()
-        print(f"Ai dat click pe {username}")
-        # text_data = self.user_data[username]["text"]
-        # img_cl_data = self.user_data[username]["image"]
-        img_cl_data = np.random.randint(0, 300, 4)
+        try:
+            username = self.listWidget.currentItem().text()
+            print(f"Ai dat click pe {username}")
+            text_data = self.user_data[username]["text"]
+            img_cl_data = list(self.user_data[username]["images"].values())
 
-        y = np.random.randint(-1, 2, 20)
-        text_data = []
-        for i, elem in enumerate(y):
-            text_data.append(np.mean(y[:(i+1)]))
+            self.plot_classifier_images_graph(img_cl_data)
+            self.plot_text_mood_graph(text_data)
+        except:
+            pass
 
-        self.plot_classifier_images_graph(img_cl_data)
-        self.plot_text_mood_graph(text_data)
 
     def plot_classifier_images_graph(self, values):
         self.axis_imgcls.clear()

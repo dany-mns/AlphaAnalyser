@@ -29,14 +29,17 @@ class RabbitMq:
     pika.ConnectionParameters(port=config['port']),
     pika.ConnectionParameters(credentials=credentials))
 
-    def __init__(self, user_data):
+    def __init__(self, user_data, listWidget, fun_call_update):
         self.user_data = user_data
+        self.listWidget = listWidget
+        self.fun_call_update = fun_call_update
         self.image_network = model.Sequential()
         self.image_network.load("./model/image_cls.an")
         self.text_network = model.Sequential()
         self.text_network.load("./model/mood_cls.an")
         self.vectorizer = text.CountVectorizer()
         self.vectorizer.fit(self.get_sentences())
+        self.current_user_modified = {"username": None, "modified": False}
         self.class_labels = ["airplane", "automobile", "ship", "truck"]
 
     def on_received_message(self, blocking_channel, deliver, properties, message):
@@ -45,6 +48,7 @@ class RabbitMq:
         try:
             envelope = Message(result)
             self.add_message(envelope)
+            self.fun_call_update()
             blocking_channel.stop_consuming()
         except Exception as e:
             print(e)
@@ -73,10 +77,8 @@ class RabbitMq:
 
 
     def mediete_mood(self, username, value):
-        # map value from [0, 1] to [-1, 1]
-        value = round(value*2 - 1, 3)
         # mediate new value with the before behavioral
-        mood_mean = (np.mean(np.array(self.user_data[username]["text"])) + value) / 2
+        mood_mean = round((np.mean(np.array(self.user_data[username]["text"])) + value) / 2, 3)
         self.user_data[username]["text"].append(mood_mean)
 
 
@@ -99,21 +101,23 @@ class RabbitMq:
 
 
     def add_message(self, envelope):
-        print(envelope)
+        print(self.user_data)
         if envelope.from_user not in self.user_data:
-            self.user_data[envelope.from_user] = {"images": {"airplane": 0, "automobile": 0, "ship": 0, "truck": 0, "unknown": 0}, "text": []}
+            self.user_data[envelope.from_user] = {"images": {"airplane": 0, "automobile": 0, "ship": 0, "truck": 0}, "text": [0]}
+            self.listWidget.addItem(envelope.from_user)
 
         if envelope.type_message == "text":
             clean_text = self.preprocess_text(envelope.body_message)
             sentiment_value = self.text_network.predict(clean_text)[0][0]
+            # map sentiment_value from [0, 1] to [-1, 1]
+            sentiment_value = sentiment_value*2 - 1
             self.mediete_mood(envelope.from_user, sentiment_value)
-            print(f"The message {envelope.body_message} is {sentiment_value} negative-positive")
+            print("The message %.32s..." % envelope.body_message + f" is {round(sentiment_value, 3)}")
         elif envelope.type_message == "image":
             image = self.preprocess_image(envelope.body_message)
-            print("GATA PREPROCESATUL")
-            print(self.image_network.predict(image))
             class_index = np.argmax(self.image_network.predict(image))
-            print(f"I predict that in the image is ---> {self.class_labels[class_index]}")
+            self.user_data[envelope.from_user]["images"][self.class_labels[class_index]] += 1
+            print(f"I predict that in the image is ---> {self.class_labels[class_index]} and confidence is: {self.image_network.predict(image)}")
         else:
             print("Unknown format message")
 
