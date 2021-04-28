@@ -77,6 +77,7 @@ class AlphaViewAppUI(QtWidgets.QMainWindow, analyser_ui.Ui_QMainWindow):
     def plot_classifier_images_graph(self, values):
         self.axis_imgcls.clear()
         self.axis_imgcls.bar(self.classes, values)
+        self.axis_imgcls.set(title="Image classifier", xlabel="classes", ylabel="# images")
         self.canvas_imgcls.draw()
 
     def plot_text_mood_graph(self, values):
@@ -86,6 +87,7 @@ class AlphaViewAppUI(QtWidgets.QMainWindow, analyser_ui.Ui_QMainWindow):
         self.axis_mood.axhline(0, 0, n, color ='green')
         self.axis_mood.plot(x, values)
         self.axis_mood.set_ylim(-1, 1)
+        self.axis_mood.set(title="Sentiments analyser from text", xlabel="# Messages", ylabel="Mood")
         self.canvas_mood.draw()
 
 

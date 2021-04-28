@@ -34,7 +34,7 @@ class RabbitMq:
         self.listWidget = listWidget
         self.fun_call_update = fun_call_update
         self.image_network = model.Sequential()
-        self.image_network.load("./model/image_cls.an")
+        self.image_network.load("./model/images_cls.an")
         self.text_network = model.Sequential()
         self.text_network.load("./model/mood_cls.an")
         self.vectorizer = text.CountVectorizer()
